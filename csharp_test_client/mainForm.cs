@@ -48,6 +48,14 @@ namespace csharp_test_client
             DevLog.Write("프로그램 시작 !!!", LOG_LEVEL.INFO);
         }
 
+        private void mainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            IsNetworkThreadRunning = false;
+
+            NetworkReadThread.Join();
+            NetworkSendThread.Join();
+        }
+
         private void btnConnect_Click(object sender, EventArgs e)
         {
             string address = textBoxIP.Text;
@@ -188,5 +196,7 @@ namespace csharp_test_client
 
             labelStatus.Text = "서버 접속이 끊어짐";
         }
+
+        
     }
 }

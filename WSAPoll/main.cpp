@@ -1,5 +1,3 @@
-// 출처: http://eternalwindows.jp/network/winsock/winsock07s.html
-
 #include <stdio.h>
 
 #include <winsock2.h>
@@ -7,6 +5,8 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+const int clientMaxCount = 16;
+char szPort[] = "32452";
 
 HWND g_hwndListBox = NULL;
 BOOL g_bExitThread = FALSE;
@@ -43,7 +43,7 @@ int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hinstPrev, LPSTR lpszCmdLine, int 
 		return 0;
 	}
 
-	hwnd = CreateWindowEx(0, szAppName, szAppName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hinst, NULL);
+	hwnd = CreateWindowEx(0, szAppName, szAppName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, NULL, NULL, hinst, NULL);
 	if (hwnd == NULL) {
 		return 0;
 	}
@@ -71,7 +71,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		g_hwndListBox = CreateWindowEx(0, TEXT("LISTBOX"), NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 0, 0, hwnd, (HMENU)1, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-		socListen = InitializeWinsock("32452");
+		socListen = InitializeWinsock(szPort);
 		if (socListen == INVALID_SOCKET)
 			return -1;
 
@@ -110,11 +110,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 DWORD WINAPI ThreadProc(LPVOID lpParamater)
 {
 	SOCKET    listenSocket = *((SOCKET *)lpParamater);
-	int       i;
-	int       nMaxSocketCount = 11;
-	WSAPOLLFD fdArray[11];
+	WSAPOLLFD fdArray[clientMaxCount];
 
-	for (int i = 0; i < nMaxSocketCount; i++) {
+	for (int i = 0; i < clientMaxCount; i++) {
 		fdArray[i].fd = INVALID_SOCKET;
 		fdArray[i].events = 0;
 	}
@@ -122,8 +120,10 @@ DWORD WINAPI ThreadProc(LPVOID lpParamater)
 	fdArray[0].fd = listenSocket;
 	fdArray[0].events = POLLRDNORM;
 
-	while (!g_bExitThread) {
-		int nResult = WSAPoll(fdArray, nMaxSocketCount, 500);
+	while (!g_bExitThread) 
+	{
+		// 접속이 끊어졌을 때 배열의 사이에 빈 곳이 없도록 하면 현재 접속 최대 수 만큼만 조사해도 된다.
+		int nResult = WSAPoll(fdArray, clientMaxCount, 500);
 		if (nResult < 0) {
 			SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)TEXT("WSAPOLLFD 실행이 실패하였다"));
 			break;
@@ -132,67 +132,23 @@ DWORD WINAPI ThreadProc(LPVOID lpParamater)
 			continue;
 		}
 
-		for (i = 0; i < nMaxSocketCount; i++)
+		// 접속이 끊어졌을 때 배열의 사이에 빈 곳이 없도록 하면 nResult 만큼만 조사해도 된다.
+		for (int i = 0; i < clientMaxCount; i++)
 		{
-			/*	if (fdArray[i].revents & POLLRDNORM)
-					break;
-				else if (fdArray[i].revents & POLLHUP)
-					break;
-			}*/
-
-			if (fdArray[i].revents & POLLRDNORM) {
-				if (fdArray[i].fd == listenSocket) {
-					AcceptSocket(nMaxSocketCount, fdArray, listenSocket);
-					/*int              nAddrLen;
-					char             szBuf[256];
-					char             szHostName[256];
-					SOCKADDR_STORAGE sockAddr;
-
-					for (i = 0; i < nMaxSocketCount; i++) {
-						if (fdArray[i].fd == INVALID_SOCKET)
-							break;
-					}
-
-					if (i == nMaxSocketCount)
-						continue;
-
-					nAddrLen = sizeof(SOCKADDR_STORAGE);
-					fdArray[i].fd = accept(listenSocket, (LPSOCKADDR)&sockAddr, &nAddrLen);
-					fdArray[i].events = POLLRDNORM;
-
-					getnameinfo((LPSOCKADDR)&sockAddr, nAddrLen, szHostName, sizeof(szHostName), NULL, 0, 0);
-					wsprintfA(szBuf, "No%d(%s) 접속", i, szHostName);
-					SendMessageA(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);*/
+			if (fdArray[i].revents & POLLRDNORM) 
+			{
+				if (fdArray[i].fd == listenSocket) 
+				{
+					AcceptSocket(clientMaxCount, fdArray, listenSocket);
 				}
-				else {
-					ReceiveSocket(&fdArray[i], i);
-					/*int   nResult;
-					wchar_t szBuf[256];
-					char szData[256] = { 0, };
-
-					nResult = recv(fdArray[i].fd, (char *)szData, sizeof(szData), 0);
-
-					char szSendMessage[256] = { 0, };
-					sprintf_s(szSendMessage, 256 - 1, "Re:%s", szData);
-					int nMsgLen = strnlen_s(szSendMessage, 256 - 1);
-
-					wsprintf(szBuf, L"No%d %S", i, szSendMessage);
-					SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);
-
-					nResult = send(fdArray[i].fd, (char *)szSendMessage, nMsgLen, 0);*/
+				else 
+				{
+					ReceiveSocket(&fdArray[i], i);					
 				}
 			}
-			else if (fdArray[i].revents & POLLHUP) {
-				ClosedSocket(&fdArray[i], i);
-				/*wchar_t szBuf[256];
-
-				wsprintf(szBuf, L"No%d 접속 종료", i);
-				SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);
-
-				shutdown(fdArray[i].fd, SD_BOTH);
-				closesocket(fdArray[i].fd);
-				fdArray[i].fd = INVALID_SOCKET;
-				fdArray[i].events = 0;*/
+			else if (fdArray[i].revents & POLLHUP) 
+			{
+				ClosedSocket(&fdArray[i], i);				
 			}
 		}
 	}
@@ -231,7 +187,7 @@ SOCKET InitializeWinsock(LPSTR lpszPort)
 		return INVALID_SOCKET;
 	}
 
-	if (listen(socListen, 1) == SOCKET_ERROR) {
+	if (listen(socListen, 16) == SOCKET_ERROR) {
 		closesocket(socListen);
 		freeaddrinfo(lpAddrList);
 		WSACleanup();
@@ -245,11 +201,6 @@ SOCKET InitializeWinsock(LPSTR lpszPort)
 
 bool AcceptSocket(int maxSocketCount, WSAPOLLFD* pfd, SOCKET listenSocket)
 {
-	int              nAddrLen;
-	char             szBuf[256];
-	char             szHostName[256];
-	SOCKADDR_STORAGE sockAddr;
-
 	int fdIndex = -1;
 
 	for (int i = 0; i < maxSocketCount; i++) 
@@ -265,29 +216,33 @@ bool AcceptSocket(int maxSocketCount, WSAPOLLFD* pfd, SOCKET listenSocket)
 		return false;
 	}
 
-	nAddrLen = sizeof(SOCKADDR_STORAGE);
+	SOCKADDR_STORAGE sockAddr;
+	int nAddrLen = sizeof(SOCKADDR_STORAGE);
 	pfd[fdIndex].fd = accept(listenSocket, (LPSOCKADDR)&sockAddr, &nAddrLen);
 	pfd[fdIndex].events = POLLRDNORM;
 
+	char szHostName[256] = { 0, };
 	getnameinfo((LPSOCKADDR)&sockAddr, nAddrLen, szHostName, sizeof(szHostName), NULL, 0, 0);
+
+	char szBuf[256] = { 0, };
 	wsprintfA(szBuf, "No%d(%s) 접속", fdIndex, szHostName);
+
 	SendMessageA(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);
 
 	return true;
 }
 
 void ReceiveSocket(WSAPOLLFD* pfd, int fdIndex)
-{
-	int   nResult;
-	wchar_t szBuf[256];
+{	
 	char szData[256] = { 0, };
 
-	nResult = recv(pfd->fd, (char *)szData, sizeof(szData), 0);
+	int nResult = recv(pfd->fd, (char *)szData, sizeof(szData), 0);
 
 	char szSendMessage[256] = { 0, };
 	sprintf_s(szSendMessage, 256 - 1, "Re:%s", szData);
 	int nMsgLen = (int)strnlen_s(szSendMessage, 256 - 1);
 
+	wchar_t szBuf[256] = { 0, };
 	wsprintf(szBuf, L"No%d %S", fdIndex, szSendMessage);
 	SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);
 
@@ -296,7 +251,7 @@ void ReceiveSocket(WSAPOLLFD* pfd, int fdIndex)
 
 void ClosedSocket(WSAPOLLFD* pfd, int fdIndex)
 {
-	wchar_t szBuf[256];
+	wchar_t szBuf[256] = { 0, };
 
 	wsprintf(szBuf, L"No%d 접속 종료", fdIndex);
 	SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)szBuf);
