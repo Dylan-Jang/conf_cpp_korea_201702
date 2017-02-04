@@ -1,21 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Net.Sockets;
-using System.IO;
 using System.Net;
 
-namespace ChatClient1
+namespace csharp_test_client
 {
-    class ClientSimpleTcp
+    public class ClientSimpleTcp
     {
-        public Socket Sock = null;
+        public Socket Sock = null;   
         public string LatestErrorMsg;
-        byte[] ReadBuffer = new byte[4096];
-
-
+        
 
         //소켓연결        
         public bool Connect(string ip, int port)
@@ -42,25 +35,27 @@ namespace ChatClient1
             }
         }
 
-        public ArraySegment<byte> Receive()
+        public Tuple<int,byte[]> Receive()
         {
+
             try
             {
+                byte[] ReadBuffer = new byte[2048];
                 var nRecv = Sock.Receive(ReadBuffer, 0, ReadBuffer.Length, SocketFlags.None);
 
                 if (nRecv == 0)
                 {
-                    return new ArraySegment<byte>();
+                    return null;
                 }
 
-                return new ArraySegment<byte>(ReadBuffer, 0, nRecv);
+                return Tuple.Create(nRecv,ReadBuffer);
             }
             catch (SocketException se)
             {
                 LatestErrorMsg = se.Message;
             }
 
-            return new ArraySegment<byte>();
+            return null;
         }
 
         //스트림에 쓰기
@@ -94,6 +89,5 @@ namespace ChatClient1
         }
 
         public bool IsConnected() { return (Sock != null && Sock.Connected) ? true : false; }
-
     }
 }

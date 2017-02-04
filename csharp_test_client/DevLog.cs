@@ -3,18 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-namespace ChatClient1
+namespace csharp_test_client
 {
-    class DevLog
+    public class DevLog
     {
         static System.Collections.Concurrent.ConcurrentQueue<string> logMsgQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
         static Int64 출력가능_로그레벨 = (Int64)LOG_LEVEL.TRACE;
 
-
+        
 
         static public void Init(LOG_LEVEL logLevel)
         {
@@ -52,7 +53,9 @@ namespace ChatClient1
 
             return false;
         }
+        
     }
+
 
     public enum LOG_LEVEL
     {
