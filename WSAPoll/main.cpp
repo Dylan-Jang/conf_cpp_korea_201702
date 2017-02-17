@@ -1,3 +1,5 @@
+// http://eternalwindows.jp/network/winsock/winsock07s.html 의 코드를 참고 했습니다
+
 #include <stdio.h>
 
 #include <winsock2.h>
@@ -21,7 +23,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hinstPrev, LPSTR lpszCmdLine, int nCmdShow)
 {
-	TCHAR      szAppName[] = TEXT("sample-server");
+	TCHAR      szAppName[] = TEXT("WSAPoll-Server");
 	HWND       hwnd;
 	MSG        msg;
 	WNDCLASSEX wc;
@@ -122,10 +124,10 @@ DWORD WINAPI ThreadProc(LPVOID lpParamater)
 
 	while (!g_bExitThread) 
 	{
-		// 접속이 끊어졌을 때 배열의 사이에 빈 곳이 없도록 하면 현재 접속 최대 수 만큼만 조사해도 된다.
+		//TODO: 접속이 끊어졌을 때 배열의 사이에 빈 곳이 없도록 하면 현재 접속 최대 수 만큼만 조사해도 된다.
 		int nResult = WSAPoll(fdArray, clientMaxCount, 500);
 		if (nResult < 0) {
-			SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)TEXT("WSAPOLLFD 실행이 실패하였다"));
+			SendMessage(g_hwndListBox, LB_ADDSTRING, 0, (LPARAM)TEXT("WSAPoll 실행이 실패하였다"));
 			break;
 		}
 		else if (nResult == 0) {
